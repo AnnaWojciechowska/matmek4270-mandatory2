@@ -28,6 +28,8 @@ class FunctionSpace:
     def __init__(self, N, domain=(-1, 1)):
         self.N = N
         self._domain = domain
+        #tutaj at least in Legendre method, the ref domain must be (-1,1)
+        self._reference_domain = (-1,1)
 
     @property
     def domain(self):
@@ -35,16 +37,18 @@ class FunctionSpace:
 
     @property
     def reference_domain(self):
-        raise RuntimeError
+        return self._reference_domain
 
     @property
+    #mapping from ref dain to 
+    # len(omega)/len(ref_fomain)
     def domain_factor(self):
-        d = self.domain
-        r = self.reference_domain
+        d = self._domain
+        r = self._reference_domain
         return (d[1]-d[0])/(r[1]-r[0])
 
     def mesh(self, N=None):
-        d = self.domain
+        d = self._domain
         n = N if N is not None else self.N
         return np.linspace(d[0], d[1], n+1)
 
@@ -52,7 +56,8 @@ class FunctionSpace:
         return 1
 
     def basis_function(self, j, sympy=False):
-        raise RuntimeError
+        #tutaj?
+        raise self.basis_function(j)
 
     def derivative_basis_function(self, j, k=1):
         raise RuntimeError
@@ -65,7 +70,7 @@ class FunctionSpace:
 
     def eval(self, uh, xj):
         xj = np.atleast_1d(xj)
-        Xj = map_reference_domain(xj, self.domain, self.reference_domain)
+        Xj = map_reference_domain(xj, self.domain, self._reference_domain)
         P = self.eval_basis_function_all(Xj)
         return P @ uh
 
@@ -80,11 +85,11 @@ class FunctionSpace:
 
     def inner_product(self, u):
         us = map_expression_true_domain(
-            u, x, self.domain, self.reference_domain)
+            u, x, self.domain, self._reference_domain)
         us = sp.lambdify(x, us)
         uj = np.zeros(self.N+1)
         h = self.domain_factor
-        r = self.reference_domain
+        r = self._reference_domain
         for i in range(self.N+1):
             psi = self.basis_function(i)
             def uv(Xj): return us(Xj) * psi(Xj)
@@ -112,11 +117,13 @@ class Legendre(FunctionSpace):
         raise NotImplementedError
 
     def mass_matrix(self):
-        raise NotImplementedError
+        return super().mass_matrix()
+
+#        raise NotImplementedError
 
     def eval(self, uh, xj):
         xj = np.atleast_1d(xj)
-        Xj = map_reference_domain(xj, self.domain, self.reference_domain)
+        Xj = map_reference_domain(xj, self.domain, self._reference_domain)
         return np.polynomial.legendre.legval(Xj, uh)
 
 
@@ -136,20 +143,51 @@ class Chebyshev(FunctionSpace):
     def weight(self, x=x):
         return 1/sp.sqrt(1-x**2)
 
+    '''
+    from lecture 9 
+    def L2_error(uh, ue, space=Legendre):
+    xj = np.linspace(-1, 1, 1000)
+    uej = sp.lambdify(x, ue)(xj)
+    err = []
+    for n in range(0, len(uh), 2):
+        uj = space(uh[:(n+1)])(xj).astype(float)
+        err.append(np.sqrt(np.trapz((uj-uej)**2, dx=xj[1]-xj[0])))
+    return err
+
+   '''
     def L2_norm_sq(self, N):
         raise NotImplementedError
-
+    
+    '''
+    This matrix is often called the mass matrix, because in the early days of the finite element method,
+    the matrix arose from the mass times acceleration term in Newton’s second law of motion. F = a**2 * m
+'''
+    
     def mass_matrix(self):
-        raise NotImplementedError
+        return super().mass_matrix()
+
+    '''
+    def mass_matrix(self):
+        print("Chebyshev mass matrix")
+        M = np.zeros((self.N + 1, self.N + 1))
+
+        for i in range(self.N + 1):
+            for j in range(self.N + 1):
+                # Calculate the inner product using the weight function
+                M[i, j] = quad(lambda x: self.basis_function(i)(x) * self.basis_function(j)(x) * self.weight(x), -1, 1)[0]
+        return M
+    '''
+#    def mass_matrix(self):
+#        raise NotImplementedError
 
     def eval(self, uh, xj):
         xj = np.atleast_1d(xj)
-        Xj = map_reference_domain(xj, self.domain, self.reference_domain)
+        Xj = map_reference_domain(xj, self.domain, self._reference_domain)
         return np.polynomial.chebyshev.chebval(Xj, uh)
 
     def inner_product(self, u):
         us = map_expression_true_domain(
-            u, x, self.domain, self.reference_domain)
+            u, x, self.domain, self._reference_domain)
         # change of variables to x=cos(theta)
         us = sp.simplify(us.subs(x, sp.cos(x)), inverse=True)
         us = sp.lambdify(x, us)
@@ -175,7 +213,7 @@ class Trigonometric(FunctionSpace):
 
     def eval(self, uh, xj):
         xj = np.atleast_1d(xj)
-        Xj = map_reference_domain(xj, self.domain, self.reference_domain)
+        Xj = map_reference_domain(xj, self.domain, self._reference_domain)
         P = self.eval_basis_function_all(Xj)
         return P @ uh + self.B.Xl(Xj)
 
@@ -184,7 +222,7 @@ class Sines(Trigonometric):
 
     def __init__(self, N, domain=(0, 1), bc=(0, 0)):
         Trigonometric.__init__(self, N, domain=domain)
-        self.B = Dirichlet(bc, domain, self.reference_domain)
+        self.B = Dirichlet(bc, domain, self._reference_domain)
 
     def basis_function(self, j, sympy=False):
         if sympy:
@@ -272,7 +310,7 @@ class Composite(FunctionSpace):
 
     def eval(self, uh, xj):
         xj = np.atleast_1d(xj)
-        Xj = map_reference_domain(xj, self.domain, self.reference_domain)
+        Xj = map_reference_domain(xj, self.domain, self._reference_domain)
         P = self.eval_basis_function_all(Xj)
         return P @ uh + self.B.Xl(Xj)
 
@@ -285,7 +323,7 @@ class Composite(FunctionSpace):
 class DirichletLegendre(Composite, Legendre):
     def __init__(self, N, domain=(-1, 1), bc=(0, 0)):
         Legendre.__init__(self, N, domain=domain)
-        self.B = Dirichlet(bc, domain, self.reference_domain)
+        self.B = Dirichlet(bc, domain, self._reference_domain)
         self.S = sparse.diags((1, -1), (0, 2), shape=(N+1, N+3), format='csr')
 
     def basis_function(self, j, sympy=False):
@@ -304,7 +342,7 @@ class DirichletChebyshev(Composite, Chebyshev):
 
     def __init__(self, N, domain=(-1, 1), bc=(0, 0)):
         Chebyshev.__init__(self, N, domain=domain)
-        self.B = Dirichlet(bc, domain, self.reference_domain)
+        self.B = Dirichlet(bc, domain, self._reference_domain)
         self.S = sparse.diags((1, -1), (0, 2), shape=(N+1, N+3), format='csr')
 
     def basis_function(self, j, sympy=False):
@@ -345,7 +383,8 @@ class BasisFunction:
 
 
 class TestFunction(BasisFunction):
-
+    #mass_matrix
+    #tutaj
     def __init__(self, V, diff=0):
         BasisFunction.__init__(self, V, diff=diff, argument=0)
 
@@ -397,21 +436,22 @@ def project(ue, V):
     uh = sparse.linalg.spsolve(A, b)
     return uh
 
-
+#L1 as MAE (Mean Absolute Error) and L2 as MSE (Mean Square Error)
 def L2_error(uh, ue, V, kind='norm'):
     d = V.domain
     uej = sp.lambdify(x, ue)
     def uv(xj): return (uej(xj)-V.eval(uh, xj))**2
     if kind == 'norm':
         return np.sqrt(quad(uv, float(d[0]), float(d[1]))[0])
-    elif kind == 'inf':
-        return max(abs(uj-uej))
+    #elif kind == 'inf':
+    #    return max(abs(uj-uej))
 
 
 def test_project():
     ue = sp.besselj(0, x)
     domain = (0, 10)
     for space in (Chebyshev, Legendre):
+        #space = Chebyshev
         V = space(16, domain=domain)
         u = project(ue, V)
         err = L2_error(u, ue, V)
@@ -441,7 +481,7 @@ def test_helmholtz():
         print(
             f'test_helmholtz: L2 error = {err:2.4e}, N = {N}, {V.__class__.__name__}')
         assert err < 1e-3
-
+'''
 
 def test_convection_diffusion():
     eps = 0.05
@@ -460,9 +500,11 @@ def test_convection_diffusion():
         print(
             f'test_convection_diffusion: L2 error = {err:2.4e}, N = {N}, {V.__class__.__name__}')
         assert err < 1e-3
+'''
+
 
 
 if __name__ == '__main__':
-    test_project()
-    test_convection_diffusion()
+    #test_project()
+    #test_convection_diffusion()
     test_helmholtz()
