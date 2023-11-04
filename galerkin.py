@@ -340,17 +340,18 @@ class DirichletLegendre(Composite, Legendre):
     def basis_function(self, j, sympy=False):
         if sympy:
             return sp.legendre(j, x)
-        return Leg.basis(j)
+        return Leg.basis(j)-Leg.basis(j+2)
 
 
 class NeumannLegendre(Composite, Legendre):
     def __init__(self, N, domain=(-1, 1), bc=(0, 0), constraint=0):
         raise NotImplementedError
 
+    #lecture 11 tutaj check if sympy version is ok
     def basis_function(self, j, sympy=False):
         if sympy:
             return sp.legendre(j, x)
-        return Leg.basis(j)
+        return Leg.basis(j)-Leg.basis(j+2)
 
 
 class DirichletChebyshev(Composite, Chebyshev):
@@ -476,6 +477,16 @@ def test_project():
         assert err < 1e-6
 
 
+'''
+status:
+2/5
+NeumannChebyshev nope
+NeumannLegendre nope
+DirichletChebyshev pass
+DirichletLegendre pass
+Sines nope
+Cosines nope
+'''
        
 #done: DirichletChebyshev
 def test_helmholtz():
@@ -502,6 +513,13 @@ def test_helmholtz():
         assert err < 1e-3
 
 
+'''
+2/3
+status:
+DirichletLegendre pass
+DirichletChebyshev pass
+Sines nope
+'''
 def test_convection_diffusion():
     eps = 0.05
     ue = (sp.exp(-x/eps)-1)/(sp.exp(-1/eps)-1)
@@ -509,7 +527,7 @@ def test_convection_diffusion():
     domain = (0, 1)
     for space in (DirichletLegendre, DirichletChebyshev, Sines):
         #space = DirichletChebyshev
-        space =  DirichletLegendre
+        space =  DirichletChebyshev
         N = 50 if space is Sines else 16
         V = space(N, domain=domain, bc=(0, 1))
         u = TrialFunction(V)
@@ -527,5 +545,5 @@ def test_convection_diffusion():
 
 if __name__ == '__main__':
     #test_project()
-    test_convection_diffusion()
-    #test_helmholtz()
+    #test_convection_diffusion()
+    test_helmholtz()
