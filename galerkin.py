@@ -57,7 +57,7 @@ class FunctionSpace:
 
     def basis_function(self, j, sympy=False):
         #tutaj?
-        raise self.basis_function(j)
+        return self.basis_function(j)
 
     def derivative_basis_function(self, j, k=1):
         raise RuntimeError
@@ -114,8 +114,12 @@ class Legendre(FunctionSpace):
         return self.basis_function(j).deriv(k)
 
     def L2_norm_sq(self, N):
-        raise NotImplementedError
+        l2_err = np.empty(N+1)
+        for j in range(N+1):
+            l2_err[j] = 2/(2*j +1)
+        return l2_err
 
+   
     def mass_matrix(self):
         return super().mass_matrix()
 
@@ -156,8 +160,15 @@ class Chebyshev(FunctionSpace):
 
    '''
     def L2_norm_sq(self, N):
-        raise NotImplementedError
-    
+        # tutaj chyb
+        l2_err_norm = np.empty(N+1)
+        for j in range(N+1):
+            if j == 0:
+                l2_err_norm[j] = 2* np.pi/2
+            else:
+                l2_err_norm[j] = np.pi/2
+        return l2_err_norm
+
     '''
     This matrix is often called the mass matrix, because in the early days of the finite element method,
     the matrix arose from the mass times acceleration term in Newton’s second law of motion. F = a**2 * m
@@ -327,7 +338,9 @@ class DirichletLegendre(Composite, Legendre):
         self.S = sparse.diags((1, -1), (0, 2), shape=(N+1, N+3), format='csr')
 
     def basis_function(self, j, sympy=False):
-        raise NotImplementedError
+        if sympy:
+            return sp.legendre(j, x)
+        return Leg.basis(j)
 
 
 class NeumannLegendre(Composite, Legendre):
@@ -335,7 +348,9 @@ class NeumannLegendre(Composite, Legendre):
         raise NotImplementedError
 
     def basis_function(self, j, sympy=False):
-        raise NotImplementedError
+        if sympy:
+            return sp.legendre(j, x)
+        return Leg.basis(j)
 
 
 class DirichletChebyshev(Composite, Chebyshev):
@@ -356,8 +371,9 @@ class NeumannChebyshev(Composite, Chebyshev):
         raise NotImplementedError
 
     def basis_function(self, j, sympy=False):
-        raise NotImplementedError
-
+        if sympy:
+            return sp.cos(j*sp.acos(x)) - sp.cos((j+2)*sp.acos(x))
+        return Cheb.basis(j)-Cheb.basis(j+2)
 
 class BasisFunction:
 
@@ -460,11 +476,14 @@ def test_project():
         assert err < 1e-6
 
 
+       
+#done: DirichletChebyshev
 def test_helmholtz():
     ue = sp.besselj(0, x)
     f = ue.diff(x, 2)+ue
     domain = (0, 10)
     for space in (NeumannChebyshev, NeumannLegendre, DirichletChebyshev, DirichletLegendre, Sines, Cosines):
+        space =  DirichletLegendre
         if space in (NeumannChebyshev, NeumannLegendre, Cosines):
             bc = ue.diff(x, 1).subs(x, domain[0]), ue.diff(
                 x, 1).subs(x, domain[1])
@@ -481,7 +500,7 @@ def test_helmholtz():
         print(
             f'test_helmholtz: L2 error = {err:2.4e}, N = {N}, {V.__class__.__name__}')
         assert err < 1e-3
-'''
+
 
 def test_convection_diffusion():
     eps = 0.05
@@ -489,6 +508,8 @@ def test_convection_diffusion():
     f = 0
     domain = (0, 1)
     for space in (DirichletLegendre, DirichletChebyshev, Sines):
+        #space = DirichletChebyshev
+        space =  DirichletLegendre
         N = 50 if space is Sines else 16
         V = space(N, domain=domain, bc=(0, 1))
         u = TrialFunction(V)
@@ -500,11 +521,11 @@ def test_convection_diffusion():
         print(
             f'test_convection_diffusion: L2 error = {err:2.4e}, N = {N}, {V.__class__.__name__}')
         assert err < 1e-3
-'''
+
 
 
 
 if __name__ == '__main__':
     #test_project()
-    #test_convection_diffusion()
-    test_helmholtz()
+    test_convection_diffusion()
+    #test_helmholtz()
