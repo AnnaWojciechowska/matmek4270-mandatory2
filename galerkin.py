@@ -43,12 +43,12 @@ class FunctionSpace:
     #mapping from ref dain to 
     # len(omega)/len(ref_fomain)
     def domain_factor(self):
-        d = self._domain
+        d = self.domain
         r = self.reference_domain
         return (d[1]-d[0])/(r[1]-r[0])
 
     def mesh(self, N=None):
-        d = self._domain
+        d = self.domain
         n = N if N is not None else self.N
         return np.linspace(d[0], d[1], n+1)
 
@@ -85,7 +85,7 @@ class FunctionSpace:
 
     def inner_product(self, u):
         us = map_expression_true_domain(
-            u, x, self.domain, self._reference_domain)
+            u, x, self.domain, self.reference_domain)
         us = sp.lambdify(x, us)
         uj = np.zeros(self.N+1)
         h = self.domain_factor
@@ -530,16 +530,14 @@ def test_project():
 
 '''
 status:
-2/5
+3/6
 NeumannChebyshev nope
 NeumannLegendre nope
 DirichletChebyshev pass
 DirichletLegendre pass
-Sines nope
+Sines pass
 Cosines nope
 '''
-       
-#done: DirichletChebyshev
 def test_helmholtz():
     ue = sp.besselj(0, x)
     f = ue.diff(x, 2)+ue
@@ -578,7 +576,6 @@ def test_convection_diffusion():
     f = 0
     domain = (0, 1)
     for space in (DirichletLegendre, DirichletChebyshev, Sines):
-        space =  Sines
         N = 50 if space is Sines else 16
         V = space(N, domain=domain, bc=(0, 1))
         u = TrialFunction(V)
@@ -598,5 +595,5 @@ def test_convection_diffusion():
 
 if __name__ == '__main__':
     #test_project()
-    #test_convection_diffusion()
-    test_helmholtz()
+    test_convection_diffusion()
+    #test_helmholtz()
