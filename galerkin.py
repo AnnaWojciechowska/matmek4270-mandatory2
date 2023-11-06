@@ -300,16 +300,22 @@ class Sines(Trigonometric):
 class Cosines(Trigonometric):
 
     def __init__(self, N, domain=(0, 1), bc=(0, 0)):
-        raise NotImplementedError
+        Trigonometric.__init__(self, N, domain=domain)
+        self.B = Neuman(bc, domain, self.reference_domain)
 
     def basis_function(self, j, sympy=False):
-        raise NotImplementedError
+        if sympy:
+            return sp.cos((j + 1) * sp.pi * x)
+        return lambda Xj: np.cos((j + 1) * np.pi * Xj)
+
 
     def derivative_basis_function(self, j, k=1):
         raise NotImplementedError
 
     def L2_norm_sq(self, N):
-        return np.full[N, 0.5]
+        l2_norm = np.full[N, 0.5]
+        l2_norm[0] = 1
+        return l2_norm
 
 # Create classes to hold the boundary function
 
