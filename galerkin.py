@@ -301,7 +301,7 @@ class Cosines(Trigonometric):
 
     def __init__(self, N, domain=(0, 1), bc=(0, 0)):
         Trigonometric.__init__(self, N, domain=domain)
-        self.B = Neuman(bc, domain, self.reference_domain)
+        self.B = Neumann(bc, domain, self.reference_domain)
 
     def basis_function(self, j, sympy=False):
         if sympy:
@@ -399,14 +399,21 @@ class NeumannLegendre(Composite, Legendre):
     def __init__(self, N, domain=(-1, 1), bc=(0, 0), constraint=0):
         Legendre.__init__(self, N, domain=domain)
         self.B = Neumann(bc, domain, self._reference_domain)
+        alpha_coef = np.empty(N)
+
+        for i in range(N-2):
+            alpha_coef[i] = i*(i+1)/((i+2)*(i+3))
+        #    i = 2
+        #alpha_coef[i] = i*(i+1)/((i+2)*(i+3))
         self.S = sparse.diags((1, -1), (0, 2), shape=(N+1, N+3), format='csr')
+        self.S = sparse.diags((1), (2), shape=(N+1, N+3), format='csr')
 
 
     #lecture 11 tutaj check if sympy version is ok
     def basis_function(self, j, sympy=False):
         if sympy:
             return sp.legendre(j, x)
-        return Leg.basis(j)-Leg.basis(j+2)
+        return Leg.basis(j)- Leg.basis(j+2)*j*(j+1)/((j+2)*(j+3))
 
 
 class DirichletChebyshev(Composite, Chebyshev):
@@ -549,7 +556,7 @@ def test_helmholtz():
     f = ue.diff(x, 2)+ue
     domain = (0, 10)
     for space in (NeumannChebyshev, NeumannLegendre, DirichletChebyshev, DirichletLegendre, Sines, Cosines):
-        space =  Sines
+        space =  NeumannLegendre
         if space in (NeumannChebyshev, NeumannLegendre, Cosines):
             bc = ue.diff(x, 1).subs(x, domain[0]), ue.diff(
                 x, 1).subs(x, domain[1])
@@ -601,5 +608,5 @@ def test_convection_diffusion():
 
 if __name__ == '__main__':
     #test_project()
-    test_convection_diffusion()
-    #test_helmholtz()
+    #test_convection_diffusion()
+    test_helmholtz()
