@@ -399,14 +399,10 @@ class NeumannLegendre(Composite, Legendre):
     def __init__(self, N, domain=(-1, 1), bc=(0, 0), constraint=0):
         Legendre.__init__(self, N, domain=domain)
         self.B = Neumann(bc, domain, self._reference_domain)
-        alpha_coef = np.empty(N)
-
-        for i in range(N-2):
-            alpha_coef[i] = i*(i+1)/((i+2)*(i+3))
-        #    i = 2
-        #alpha_coef[i] = i*(i+1)/((i+2)*(i+3))
-        self.S = sparse.diags((1, -1), (0, 2), shape=(N+1, N+3), format='csr')
-        self.S = sparse.diags((1), (2), shape=(N+1, N+3), format='csr')
+        alpha_coef = np.empty(N+1)
+        for i in range(N+1):
+            alpha_coef[i] = -1 * i*(i+1)/((i+2)*(i+3))
+        self.S = sparse.diags((1, alpha_coef), (0,2), shape=(N+1, N+3), format='csr')
 
 
     #lecture 11 tutaj check if sympy version is ok
@@ -545,7 +541,7 @@ def test_project():
 status:
 3/6
 NeumannChebyshev nope
-NeumannLegendre nope
+NeumannLegendre pass
 DirichletChebyshev pass
 DirichletLegendre pass
 Sines pass
@@ -556,7 +552,7 @@ def test_helmholtz():
     f = ue.diff(x, 2)+ue
     domain = (0, 10)
     for space in (NeumannChebyshev, NeumannLegendre, DirichletChebyshev, DirichletLegendre, Sines, Cosines):
-        space =  NeumannLegendre
+        space =  NeumannChebyshev
         if space in (NeumannChebyshev, NeumannLegendre, Cosines):
             bc = ue.diff(x, 1).subs(x, domain[0]), ue.diff(
                 x, 1).subs(x, domain[1])
@@ -573,6 +569,7 @@ def test_helmholtz():
         err = L2_error(u_tilde, ue, V)
         print(
             f'test_helmholtz: L2 error = {err:2.4e}, N = {N}, {V.__class__.__name__}')
+        print("wtf")
         assert err < 1e-3
 
 
