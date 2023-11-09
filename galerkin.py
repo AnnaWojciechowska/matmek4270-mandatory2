@@ -214,28 +214,13 @@ class Chebyshev(FunctionSpace):
         uj = np.zeros(self.N+1)
         h = float(self.domain_factor)
         k = sp.Symbol('k')
-        basis = sp.lambdify((k, x), sp.simplify(
-            self.basis_function(k, True).subs(x, sp.cos(x), inverse=True)))
+        #tutaj ask Mikael why why use sympy here 
+        basis = sp.lambdify((k, x), sp.simplify(self.basis_function(k, True).subs(x, sp.cos(x), inverse=True)))
         for i in range(self.N+1):
             def uv(Xj, j): return us(Xj) * basis(j, Xj)
             uj[i] = float(h) * quad(uv, 0, np.pi, args=(i,))[0]
         return uj
 
-class Trigonometric2(FunctionSpace):
-    """Base class for trigonometric function spaces"""
-
-    @property
-    def reference_domain(self):
-        return (0, 1)
-
-    def mass_matrix(self):
-        return sparse.diags([self.L2_norm_sq(self.N+1)], [0], (self.N+1, self.N+1), format='csr')
-
-    def eval(self, uh, xj):
-        xj = np.atleast_1d(xj)
-        Xj = map_reference_domain(xj, self.domain, self._reference_domain)
-        P = self.eval_basis_function_all(Xj)
-        return P @ uh + self.B.Xl(Xj)
     
 class Trigonometric(FunctionSpace):
     """Base class for trigonometric function spaces"""
@@ -255,27 +240,6 @@ class Trigonometric(FunctionSpace):
         P = self.eval_basis_function_all(Xj)
         return P @ uh + self.B.Xl(Xj)
 
-
-class Sines2(Trigonometric):
-
-    def __init__(self, N, domain=(0, 1), bc=(0, 0)):
-        Trigonometric.__init__(self, N, domain=domain)
-        self.B = Dirichlet(bc, domain, self.reference_domain)
-
-    def basis_function(self, j, sympy=False):
-        if sympy:
-            return sp.sin((j+1)*sp.pi*x)
-        return lambda Xj: np.sin((j+1)*np.pi*Xj)
-
-    def derivative_basis_function(self, j, k=1):
-        scale = ((j+1)*np.pi)**k * {0: 1, 1: -1}[(k//2) % 2]
-        if k % 2 == 0:
-            return lambda Xj: scale*np.sin((j+1)*np.pi*Xj)
-        else:
-            return lambda Xj: scale*np.cos((j+1)*np.pi*Xj)
-
-    def L2_norm_sq(self, N):
-        return  0.5
 
 class Sines(Trigonometric):
     def __init__(self, N, domain=(0, 1), bc=(0, 0)):
@@ -408,7 +372,9 @@ class NeumannLegendre(Composite, Legendre):
     #lecture 11 tutaj check if sympy version is ok
     def basis_function(self, j, sympy=False):
         if sympy:
+            print("sympy")
             return sp.legendre(j, x)
+        print ("no sympy")
         return Leg.basis(j)- Leg.basis(j+2)*j*(j+1)/((j+2)*(j+3))
 
 
@@ -425,16 +391,23 @@ class DirichletChebyshev(Composite, Chebyshev):
         return Cheb.basis(j)-Cheb.basis(j+2)
 
 
+
 class NeumannChebyshev(Composite, Chebyshev):
     def __init__(self, N, domain=(-1, 1), bc=(0, 0), constraint=0):
         Chebyshev.__init__(self, N, domain=domain)
         self.B = Neumann(bc, domain, self._reference_domain)
-        self.S = sparse.diags((1, -1), (0, 2), shape=(N+1, N+3), format='csr')
+        alpha_coef = np.empty(N+1)
+        for i in range(N+1):
+            alpha_coef[i] = -1 *i**2/((i+2)**2)
+        self.S = sparse.diags((1, alpha_coef), (0, 2), shape=(N+1, N+3), format='csr')
 
     def basis_function(self, j, sympy=False):
+
         if sympy:
-            return sp.cos(j*sp.acos(x)) - sp.cos((j+2)*sp.acos(x))
-        return Cheb.basis(j)-Cheb.basis(j+2)
+            #tutaj check why using sympy
+            print("sympy")
+            return sp.cos(j*sp.acos(x)) - j**2/((j+2)**2)*sp.cos((j+2)*sp.acos(x))
+        return Cheb.basis(j)-Cheb.basis(j+2)*j**2/((j+2)**2)
 
 class BasisFunction:
 
@@ -540,7 +513,7 @@ def test_project():
 '''
 status:
 3/6
-NeumannChebyshev nope
+NeumannChebyshev pass
 NeumannLegendre pass
 DirichletChebyshev pass
 DirichletLegendre pass
@@ -553,6 +526,7 @@ def test_helmholtz():
     domain = (0, 10)
     for space in (NeumannChebyshev, NeumannLegendre, DirichletChebyshev, DirichletLegendre, Sines, Cosines):
         space =  NeumannChebyshev
+        #space = NeumannLegendre
         if space in (NeumannChebyshev, NeumannLegendre, Cosines):
             bc = ue.diff(x, 1).subs(x, domain[0]), ue.diff(
                 x, 1).subs(x, domain[1])
