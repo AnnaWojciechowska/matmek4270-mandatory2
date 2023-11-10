@@ -524,7 +524,7 @@ NeumannLegendre pass
 DirichletChebyshev pass
 DirichletLegendre pass
 Sines pass
-Cosines nope
+Cosines pass
 '''
 def test_helmholtz():
     ue = sp.besselj(0, x)
