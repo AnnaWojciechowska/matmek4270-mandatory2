@@ -251,8 +251,12 @@ class Sines(Trigonometric):
             return sp.sin((j + 1) * sp.pi * x)
         return lambda Xj: np.sin((j + 1) * np.pi * Xj)
 
+    #k - order of derivative
+    #{0: 1, 1: -1} dictionray, 2 values 0 and 1, used for mapping
+    #[(k // 2) % 2] return 0 or 1 - used to index value in dictionary
     def derivative_basis_function(self, j, k=1):
-        scale = ((j + 1) * np.pi) ** k * {0: 1, 1: -1}[(k // 2) % 2]
+        sign =  {0: 1, 1: -1}[(k // 2) % 2]
+        scale = sign * (((j + 1) * np.pi) ** k )
         if k % 2 == 0:
             return lambda Xj: scale * np.sin((j + 1) * np.pi * Xj)
         else:
@@ -269,18 +273,23 @@ class Cosines(Trigonometric):
 
     def basis_function(self, j, sympy=False):
         if sympy:
-            return sp.cos((j + 1) * sp.pi * x)
-        return lambda Xj: np.cos((j + 1) * np.pi * Xj)
-
+            return sp.cos(j * sp.pi * x)
+        return lambda Xj: np.cos(j * np.pi * Xj)
 
     def derivative_basis_function(self, j, k=1):
-        raise NotImplementedError
+        sign = {0: 1, 1: -1}[((k+1) // 2) % 2]
+        scale = sign * ((j * np.pi) ** k )
+        if k % 2 == 0:
+            return lambda Xj: scale*np.cos(j*np.pi*Xj)
+        else:
+            return lambda Xj: scale*np.sin(j*np.pi*Xj)
+
 
     def L2_norm_sq(self, N):
-        l2_norm = np.full[N, 0.5]
-        l2_norm[0] = 1
-        return l2_norm
-
+        l2_norm_sq = np.full(N, 0.5)
+        l2_norm_sq[0] = 1
+        return l2_norm_sq
+     
 # Create classes to hold the boundary function
 
 class Dirichlet:
@@ -372,9 +381,7 @@ class NeumannLegendre(Composite, Legendre):
     #lecture 11 tutaj check if sympy version is ok
     def basis_function(self, j, sympy=False):
         if sympy:
-            print("sympy")
             return sp.legendre(j, x)
-        print ("no sympy")
         return Leg.basis(j)- Leg.basis(j+2)*j*(j+1)/((j+2)*(j+3))
 
 
@@ -405,7 +412,6 @@ class NeumannChebyshev(Composite, Chebyshev):
 
         if sympy:
             #tutaj check why using sympy
-            print("sympy")
             return sp.cos(j*sp.acos(x)) - j**2/((j+2)**2)*sp.cos((j+2)*sp.acos(x))
         return Cheb.basis(j)-Cheb.basis(j+2)*j**2/((j+2)**2)
 
@@ -525,8 +531,7 @@ def test_helmholtz():
     f = ue.diff(x, 2)+ue
     domain = (0, 10)
     for space in (NeumannChebyshev, NeumannLegendre, DirichletChebyshev, DirichletLegendre, Sines, Cosines):
-        space =  NeumannChebyshev
-        #space = NeumannLegendre
+        #space =  Cosines
         if space in (NeumannChebyshev, NeumannLegendre, Cosines):
             bc = ue.diff(x, 1).subs(x, domain[0]), ue.diff(
                 x, 1).subs(x, domain[1])
@@ -578,6 +583,6 @@ def test_convection_diffusion():
 
 
 if __name__ == '__main__':
-    #test_project()
-    #test_convection_diffusion()
+    test_project()
+    test_convection_diffusion()
     test_helmholtz()
